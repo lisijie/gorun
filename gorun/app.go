@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 )
 
 type Config struct {
-	Name             string            `toml:"name"`
+	AppName          string            `toml:"app_name"`
 	AppPath          string            `toml:"app_path"`
 	WatchExcludeDirs string            `toml:"watch_exclude_dirs"`
 	WatchExtensions  string            `toml:"watch_extensions"`
@@ -59,6 +60,7 @@ func (app *App) Run() (err error) {
 	if err != nil {
 		return
 	}
+	defer app.watcher.Close()
 
 	if err = app.initWatchDirs(); err != nil {
 		return
@@ -74,13 +76,21 @@ func (app *App) Run() (err error) {
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	rebuild := false
+	tk := time.NewTicker(time.Second)
 	for {
 		select {
 		case e := <-app.watcher.Events:
-			if _, ok := exts[filepath.Ext(e.Name)]; ok {
+			if _, ok := exts[filepath.Ext(e.Name)]; ok && e.Op != fsnotify.Chmod {
+				rebuild = true
+			}
+		case <-tk.C:
+			if rebuild {
 				app.buildAndRun()
+				rebuild = false
 			}
 		case <-sig:
+			tk.Stop()
 			return
 		}
 	}
@@ -118,6 +128,7 @@ func (app *App) buildAndRun() {
 	}
 	if err := app.run(); err != nil {
 		app.log.Error("run error: ", err)
+		return
 	}
 }
 
