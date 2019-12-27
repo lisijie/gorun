@@ -46,13 +46,13 @@ func New(cfg *Config) *App {
 	}
 	app := &App{
 		cfg: cfg,
-		log: NullLogger,
+		log: Logger{},
 	}
 	return app
 }
 
-func (app *App) SetLogger(l Logger) {
-	app.log = l
+func (app *App) SetDebug(debug bool) {
+	app.log.isDebug = debug
 }
 
 func (app *App) Run() (err error) {
@@ -97,6 +97,7 @@ func (app *App) Run() (err error) {
 }
 
 func (app *App) initWatchDirs() error {
+	app.log.Info("initializing watcher...")
 	excludeDirs := make(map[string]bool)
 	if app.cfg.WatchExcludeDirs != "" {
 		for _, v := range strings.Split(app.cfg.WatchExcludeDirs, ",") {
@@ -120,16 +121,17 @@ func (app *App) initWatchDirs() error {
 }
 
 func (app *App) buildAndRun() {
-	app.log.Debug("----buildAndRun----")
+	app.log.Info(fmt.Sprintf("app '%s' restarting...", app.cfg.AppName))
 	app.kill()
 	if err := app.build(); err != nil {
-		app.log.Error("build error: ", err)
+		app.log.Error("build fail: ", err)
 		return
 	}
 	if err := app.run(); err != nil {
-		app.log.Error("run error: ", err)
+		app.log.Error("restart error: ", err)
 		return
 	}
+	app.log.Info(fmt.Sprintf("app '%s' is running...", app.cfg.AppName))
 }
 
 func (app *App) build() error {
@@ -166,7 +168,7 @@ func (app *App) run() error {
 	app.process = cmd.Process
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			app.log.Info("app exit: ", err)
+			app.log.Debug("app exit: ", err)
 		}
 		app.process = nil
 	}()

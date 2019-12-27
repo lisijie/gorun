@@ -18,8 +18,8 @@ var configTpl = `app_name = "{app_name}"
 app_path = "./"
 watch_exclude_dirs = ""
 watch_extensions = ".go,.toml,.ini,.yml"
-build_cmd = "go build -o gorun_app"
-run_cmd = "./gorun_app"
+build_cmd = "go build -o {app_name}"
+run_cmd = "./{app_name}"
 `
 
 var debug bool
@@ -52,9 +52,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	app := gorun.New(conf)
-	if debug {
-		app.SetLogger(gorun.StdLogger)
-	}
+	app.SetDebug(debug)
 	if err := app.Run(); err != nil {
 		log.Fatalln(err)
 	}
@@ -65,7 +63,7 @@ func createConfigFile(name string) {
 		fmt.Println(configFile, "already exists")
 		return
 	}
-	data := strings.Replace(configTpl, "{app_name}", name, 1)
+	data := strings.Replace(configTpl, "{app_name}", name, -1)
 	if err := ioutil.WriteFile(configFile, []byte(data), 0644); err != nil {
 		fmt.Println(err)
 	}
